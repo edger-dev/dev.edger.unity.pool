@@ -1,0 +1,17 @@
+{
+    "name": "Dev.Edger.Unity.Pool",
+    "rootNamespace": "",
+    "references": [
+        "GUID:81015c0ced48ca34290d962c057190b3",
+        "GUID:6a084267cc09eed43990154d7dfb96d8"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
