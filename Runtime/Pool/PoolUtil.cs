@@ -41,14 +41,14 @@ namespace Edger.Unity.Pool {
         public bool Release(string poolKey, GameObject go) {
             var pool = PoolUtil.Instance.GetPool(poolKey);
             if (pool == null) {
-                Error("Release() Pool Not Found: [{0}] {1}", poolKey, go.name);
+                ErrorFrom(go, "Release() Pool Not Found: [{0}] {1}", poolKey, go.name);
                 return false;
             }
             try {
                 pool.Release(go, go);
                 return true;
             } catch (Exception e) {
-                Error("GameObjectDespawn() Got Exception: {0} -> {1}", transform.name, e);
+                ErrorFrom(go, "GameObjectDespawn() Got Exception: {0} -> {1}", transform.name, e);
             }
             return false;
         }
@@ -75,7 +75,7 @@ namespace Edger.Unity.Pool {
                     onPoolAdded(key, pool);
                 }
                 _Pools[key] = pool;
-                Info("<GameObjectPool> Created: [{0}] maxSize = {1}, updateParent = {2}", key, maxSize, updateParent);
+                InfoFrom(pool, "Pool Created: {0}maxSize = {1}, updateParent = {2}", pool.LogPrefix, maxSize, updateParent);
             }
             return pool;
         }
@@ -83,14 +83,14 @@ namespace Edger.Unity.Pool {
         public void Release(GameObject go, UnityEngine.Object caller = null) {
             var data = go.GetComponent<InPoolData>();
             if (data == null) {
-                Log.ErrorFrom(caller == null ? go : caller,
-                    "{0}Release() InPoolData Not Found: {1}", LogPrefix, go.name);
+                ErrorFrom(caller == null ? go : caller,
+                    "Release() InPoolData Not Found: {0}", go.name);
                 return;
             }
             var pool = GetPool(data.PoolKey);
             if (pool == null) {
-                Log.ErrorFrom(caller == null ? go : caller,
-                    "{0}Release() Pool Not Found: {1} -> {2}", LogPrefix, go.name, data.PoolKey);
+                ErrorFrom(caller == null ? go : caller,
+                    "Release() Pool Not Found: {0} -> {1}", go.name, data.PoolKey);
                 return;
             }
             pool.Release(go, caller);

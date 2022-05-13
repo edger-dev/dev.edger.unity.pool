@@ -5,38 +5,30 @@ using UnityEngine;
 
 using Edger.Unity;
 
+#if ODIN_INSPECTOR
+using Sirenix.OdinInspector;
+#endif
+
 namespace Edger.Unity.Pool {
     [DisallowMultipleComponent()]
-    public class InPoolData : BaseMono {
-        public string PoolKey { get; private set; }
+    public class InPoolData : BaseData {
+#if ODIN_INSPECTOR
+        [ShowInInspector]
+        [ReadOnly]
+#endif
         public bool Taken { get; private set; }
-        public int TakenCount { get; private set; }
-        public DateTime CreatedTime { get; private set; }
-        public DateTime LastTakenTime { get; private set; }
-        public DateTime LastReleasedTime { get; private set; }
 
-        public bool Setup(string key) {
-            if (PoolKey == key) return true;
-            if (!string.IsNullOrEmpty(PoolKey)) {
-                Error("Setup() failed, already setup: {0} -> {1}", PoolKey, key);
-                return false;
-            }
-            PoolKey = key;
-            CreatedTime = DateTimeUtil.GetStartTime();
-            return true;
-        }
-
-        internal void OnTaken() {
+        public override void OnTaken() {
             if (!Taken) {
                 Taken = true;
-                TakenCount++;
-                LastTakenTime = DateTimeUtil.GetStartTime();
+                base.OnTaken();
             }
         }
 
-        internal void OnReleased() {
+        public override void OnReleased() {
             if (Taken) {
-                LastReleasedTime = DateTimeUtil.GetStartTime();;
+                Taken = false;
+                base.OnReleased();
             }
         }
     }
