@@ -6,6 +6,6 @@
     "description": "TODO",
     "category": "Tools",
     "dependencies": {
-        "com.unity.pool": "1.0.0"
+        "dev.edger.unity.utils": "0.1.0"
     }
 }

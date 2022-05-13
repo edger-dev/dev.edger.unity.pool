@@ -38,6 +38,21 @@ namespace Edger.Unity.Pool {
             return null;
         }
 
+        public bool Release(string poolKey, GameObject go) {
+            var pool = PoolUtil.Instance.GetPool(poolKey);
+            if (pool == null) {
+                Error("Release() Pool Not Found: [{0}] {1}", poolKey, go.name);
+                return false;
+            }
+            try {
+                pool.Release(go, go);
+                return true;
+            } catch (Exception e) {
+                Error("GameObjectDespawn() Got Exception: {0} -> {1}", transform.name, e);
+            }
+            return false;
+        }
+
         public GameObjectPool GetOrAddPool(string key,
                     Func<GameObject> createPrefab,
                     int maxSize = GameObjectPool.Default_MaxSize,
@@ -80,5 +95,15 @@ namespace Edger.Unity.Pool {
             }
             pool.Release(go, caller);
         }
+
+        protected void ClearPools() {
+            foreach (var kv in _Pools) {
+                GameObjectUtil.Destroy(kv.Value.gameObject);
+            }
+            _Pools.Clear();
+            OnClear();
+        }
+
+        protected virtual void OnClear() {}
     }
 }
