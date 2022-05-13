@@ -22,6 +22,16 @@ namespace Edger.Unity.Pool {
             }
         }
 
+#if ODIN_INSPECTOR
+        [ShowInInspector]
+        [ReadOnly]
+#endif
+        public int PoolCount {
+            get {
+                return _Pools.Count;
+            }
+        }
+
         private Dictionary<string, GameObjectPool> _Pools = new Dictionary<string, GameObjectPool>();
 
         public void Start() {
@@ -114,21 +124,25 @@ namespace Edger.Unity.Pool {
                 if (kv.Value.Data.TakenCount == 0 && kv.Value.UnusedCount == 0) {
                     if (unusedPools == null) {
                         unusedPools = new List<GameObjectPool>();
-                        unusedPools.Add(kv.Value);
                     }
+                    unusedPools.Add(kv.Value);
                 }
             }
             if (unusedPools != null) {
                 for (int i = 0; i < unusedPools.Count; i++) {
-                    _Pools.Remove(unusedPools[i].PoolKey);
-                    GameObjectUtil.Destroy(unusedPools[i].gameObject);
+                    var pool = unusedPools[i];
+                    _Pools.Remove(pool.PoolKey);
+                    InfoFrom(pool, "Unused Pool Destroyed: {0}", pool.LogPrefix);
+                    GameObjectUtil.Destroy(pool.gameObject);
                 }
             }
         }
 
         protected void ClearPools() {
             foreach (var kv in _Pools) {
-                GameObjectUtil.Destroy(kv.Value.gameObject);
+                var pool = kv.Value;
+                InfoFrom(pool, "Pool Destroyed: {0}: TakenCount = {0}, UnusedCount = {1}", pool.LogPrefix, pool.Data.TakenCount, pool.UnusedCount);
+                GameObjectUtil.Destroy(pool.gameObject);
             }
             _Pools.Clear();
             OnClear();
