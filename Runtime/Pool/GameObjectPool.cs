@@ -6,6 +6,10 @@ using UnityEngine.Pool;
 
 using Edger.Unity;
 
+#if ODIN_INSPECTOR
+using Sirenix.OdinInspector;
+#endif
+
 namespace Edger.Unity.Pool {
     public class GameObjectPool : BaseMono {
         public const int Default_MaxSize = 100;
@@ -28,6 +32,16 @@ namespace Edger.Unity.Pool {
         }
 
         private ObjectPool<GameObject> _Pool = null;
+
+#if ODIN_INSPECTOR
+        [ShowInInspector]
+        [ReadOnly]
+#endif
+        public int UnusedCount {
+            get {
+                return _Pool == null ? 0 : _Pool.CountInactive;
+            }
+        }
 
         protected override void OnAwake() {
             Data = gameObject.GetOrAddComponent<PoolData>();
@@ -82,6 +96,7 @@ namespace Edger.Unity.Pool {
             if (LogDebug) {
                 DebugFrom(go, "PoolOnDestroy() -> {0}", name, go.name);
             }
+            GameObjectUtil.Destroy(go);
         }
 
         public GameObject Take(UnityEngine.Object caller = null) {
@@ -112,6 +127,12 @@ namespace Edger.Unity.Pool {
                 _Pool.Release(go);
             } catch (Exception e) {
                 ErrorFrom(caller == null ? go : caller, "Release() Got Exception: {0} -> {1}", transform.name, e);
+            }
+        }
+
+        public void ReleaseUnused() {
+            if (_Pool != null) {
+                _Pool.Clear();
             }
         }
     }

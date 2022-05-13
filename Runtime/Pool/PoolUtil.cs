@@ -5,6 +5,10 @@ using UnityEngine;
 
 using Edger.Unity;
 
+#if ODIN_INSPECTOR
+using Sirenix.OdinInspector;
+#endif
+
 namespace Edger.Unity.Pool {
     public class PoolUtil : BaseMono {
         private static PoolUtil _Instance;
@@ -44,13 +48,8 @@ namespace Edger.Unity.Pool {
                 ErrorFrom(go, "Release() Pool Not Found: [{0}] {1}", poolKey, go.name);
                 return false;
             }
-            try {
-                pool.Release(go, go);
-                return true;
-            } catch (Exception e) {
-                ErrorFrom(go, "GameObjectDespawn() Got Exception: {0} -> {1}", transform.name, e);
-            }
-            return false;
+            pool.Release(go, go);
+            return true;
         }
 
         public GameObjectPool GetOrAddPool(string key,
@@ -94,6 +93,37 @@ namespace Edger.Unity.Pool {
                 return;
             }
             pool.Release(go, caller);
+        }
+
+#if ODIN_INSPECTOR
+        [Button(ButtonSizes.Large)]
+#endif
+        public void ReleaseUnused() {
+            foreach (var kv in _Pools) {
+                kv.Value.ReleaseUnused();
+            }
+        }
+
+#if ODIN_INSPECTOR
+        [Button(ButtonSizes.Large)]
+#endif
+        public void DestroyUnused() {
+            ReleaseUnused();
+            List<GameObjectPool> unusedPools = null;
+            foreach (var kv in _Pools) {
+                if (kv.Value.Data.TakenCount == 0 && kv.Value.UnusedCount == 0) {
+                    if (unusedPools == null) {
+                        unusedPools = new List<GameObjectPool>();
+                        unusedPools.Add(kv.Value);
+                    }
+                }
+            }
+            if (unusedPools != null) {
+                for (int i = 0; i < unusedPools.Count; i++) {
+                    _Pools.Remove(unusedPools[i].PoolKey);
+                    GameObjectUtil.Destroy(unusedPools[i].gameObject);
+                }
+            }
         }
 
         protected void ClearPools() {
