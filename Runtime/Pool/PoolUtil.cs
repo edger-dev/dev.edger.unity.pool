@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using UnityEngine;
 
 using Edger.Unity;
-using Edger.Unity.Remote;
 
 namespace Edger.Unity.Pool {
     public class PoolUtil : BaseMono {
@@ -64,6 +63,22 @@ namespace Edger.Unity.Pool {
                 Info("<GameObjectPool> Created: [{0}] maxSize = {1}, updateParent = {2}", key, maxSize, updateParent);
             }
             return pool;
+        }
+
+        public void Release(GameObject go, UnityEngine.Object caller = null) {
+            var data = go.GetComponent<InPoolData>();
+            if (data == null) {
+                Log.ErrorFrom(caller == null ? go : caller,
+                    "{0}Release() InPoolData Not Found: {1}", LogPrefix, go.name);
+                return;
+            }
+            var pool = GetPool(data.PoolKey);
+            if (pool == null) {
+                Log.ErrorFrom(caller == null ? go : caller,
+                    "{0}Release() Pool Not Found: {1} -> {2}", LogPrefix, go.name, data.PoolKey);
+                return;
+            }
+            pool.Release(go, caller);
         }
     }
 }

@@ -5,19 +5,34 @@ using UnityEngine;
 using UnityEngine.Pool;
 
 using Edger.Unity;
-using Edger.Unity.Remote;
 
 namespace Edger.Unity.Pool {
     public class GameObjectPool : BaseMono {
         public const int Default_MaxSize = 100;
         public const bool Default_UpdateParent = true;
         public const bool Default_SetActive = true;
+        public const bool Default_UpdateData = true;
+
         public GameObject Prefab = null;
         public int MaxSize = Default_MaxSize;
         public bool UpdateParent = Default_UpdateParent;
         public bool SetActive = Default_SetActive;
+        public bool UpdateData = Default_UpdateData;
+
+        public PoolData Data { get; private set; }
+
+        public string PoolKey {
+            get {
+                return Data.PoolKey;
+            }
+        }
 
         private ObjectPool<GameObject> _Pool = null;
+
+        protected override void OnAwake() {
+            Data = gameObject.GetOrAddComponent<PoolData>();
+            Data.Setup(name);
+        }
 
         private void CheckPool() {
             if (_Pool == null) {
@@ -28,9 +43,11 @@ namespace Edger.Unity.Pool {
         private GameObject PoolCreate() {
             var startTime = DateTimeUtil.GetStartTime();
             GameObject result = GameObject.Instantiate(Prefab) as GameObject;
-            Info("PoolCreate(): [{0}] -> {1} in {2:F2} ms", name, result.name, startTime.GetPassedSeconds() * 1000.0);
+            InPoolData data = result.GetOrAddComponent<InPoolData>();
+            data.Setup(Data.PoolKey);
+            Info("PoolCreate() -> {0} in {1:F2} ms", result.name, startTime.GetPassedSeconds() * 1000.0);
             if (DebugMode) {
-                Log.ErrorFrom(result, "<GameObjectPool>.PoolCreate(): [{0}] -> {1} in {2:F2} ms", name, result.name, startTime.GetPassedSeconds() * 1000.0);
+                Log.ErrorFrom(result, "<GameObjectPool>.PoolCreate() -> {0} in {1:F2} ms", result.name, startTime.GetPassedSeconds() * 1000.0);
             }
             return result;
         }
@@ -39,8 +56,11 @@ namespace Edger.Unity.Pool {
             if (SetActive && Prefab.activeSelf) {
                 go.SetActive(true);
             }
+            if (UpdateData) {
+                go.GetComponent<InPoolData>().OnTaken();
+            }
             if (LogDebug) {
-                Debug("PoolOnGet(): {0} -> {1}", name, go.name);
+                Debug("PoolOnGet() -> {0}", go.name);
             }
         }
 
@@ -48,14 +68,17 @@ namespace Edger.Unity.Pool {
             if (SetActive) {
                 go.SetActive(false);
             }
+            if (UpdateData) {
+                go.GetComponent<InPoolData>().OnReleased();
+            }
             if (LogDebug) {
-                Debug("PoolOnRelease(): {0} -> {1}", name, go.name);
+                Debug("PoolOnRelease() -> {0}", go.name);
             }
         }
 
         private void PoolOnDestroy(GameObject go) {
             if (LogDebug) {
-                Debug("PoolOnDestroy(): {0} -> {1}", name, go.name);
+                Debug("PoolOnDestroy() -> {0}", name, go.name);
             }
         }
 
@@ -65,10 +88,10 @@ namespace Edger.Unity.Pool {
             if (UpdateParent && result != null) {
                 result.transform.SetParent(transform, false);
             }
-            Info("Take(): [{0}] -> {1}", name, result == null ? "null" : result.name);
+            Info("Take() -> {0}", result == null ? "null" : result.name);
             if (DebugMode) {
                 Log.ErrorFrom(caller == null ? result : caller,
-                    "<GameObjectPool>.Take(): [{0}] -> {1}", name, result == null ? "null" : result.name);
+                    "{0}Take() -> {2}", LogPrefix, result == null ? "null" : result.name);
             }
             return result;
         }
@@ -77,18 +100,23 @@ namespace Edger.Unity.Pool {
             if (go == null) return;
 
             if (_Pool == null) {
-                Error("Release(): Pool Not Setup: [{0}] -> {1}", name, go.name);
+                Log.ErrorFrom(caller == null ? go : caller,
+                    "{0}Release() Pool Not Setup: [{1}] -> {2}", LogPrefix, name, go.name);
                 return;
             }
             if (UpdateParent && go.transform.parent != transform) {
                 go.transform.SetParent(transform, false);
             }
-            Info("Release(): [{0}] -> {1}", name, go.name);
+            Info("Release() -> {0}", go.name);
             if (DebugMode) {
                 Log.ErrorFrom(caller == null ? go : caller,
-                    "<GameObjectPool>.Release(): [{0}] -> {1}", name, go.name);
+                    "{0}Release() -> {1}", LogPrefix, go.name);
             }
-            _Pool.Release(go);
+            try {
+                _Pool.Release(go);
+            } catch (Exception e) {
+                Log.ErrorFrom(caller == null ? go : caller, "{0}Release() Got Exception: {1} -> {2}", LogPrefix, transform.name, e);
+            }
         }
     }
 }
