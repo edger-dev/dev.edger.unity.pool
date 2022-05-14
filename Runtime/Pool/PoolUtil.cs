@@ -21,6 +21,14 @@ namespace Edger.Unity.Pool {
                 return _Instance;
             }
         }
+        public static void DestroyInstance() {
+            if (_Instance != null) {
+                _Instance.ClearPools();
+                _Instance.name = "_PoolUtils_(Destroy)";
+                GameObjectUtil.Destroy(_Instance.gameObject);
+                _Instance = null;
+            }
+        }
 
 #if ODIN_INSPECTOR
         [ShowInInspector]
