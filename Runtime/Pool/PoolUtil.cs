@@ -108,24 +108,29 @@ namespace Edger.Unity.Pool {
 #if ODIN_INSPECTOR
         [Button(ButtonSizes.Large)]
 #endif
-        public void ReleaseUnused() {
+        public void ReleaseUnused(Func<GameObjectPool, bool> shouldKeep = null) {
             foreach (var kv in _Pools) {
-                kv.Value.ReleaseUnused();
+                bool keep = shouldKeep == null ? false : shouldKeep(kv.Value);
+                if (!keep) {
+                    kv.Value.ReleaseUnused();
+                }
             }
         }
 
 #if ODIN_INSPECTOR
         [Button(ButtonSizes.Large)]
 #endif
-        public void DestroyUnused() {
-            ReleaseUnused();
+        public void DestroyUnused(Func<GameObjectPool, bool> shouldKeep = null) {
             List<GameObjectPool> unusedPools = null;
             foreach (var kv in _Pools) {
                 if (kv.Value.Data.TakenCount == 0 && kv.Value.UnusedCount == 0) {
-                    if (unusedPools == null) {
-                        unusedPools = new List<GameObjectPool>();
+                    bool keep = shouldKeep == null ? false : shouldKeep(kv.Value);
+                    if (!keep) {
+                        if (unusedPools == null) {
+                            unusedPools = new List<GameObjectPool>();
+                        }
+                        unusedPools.Add(kv.Value);
                     }
-                    unusedPools.Add(kv.Value);
                 }
             }
             if (unusedPools != null) {
@@ -136,6 +141,14 @@ namespace Edger.Unity.Pool {
                     GameObjectUtil.Destroy(pool.gameObject);
                 }
             }
+        }
+
+#if ODIN_INSPECTOR
+        [Button(ButtonSizes.Large)]
+#endif
+        public void ReleaseAndDestroyUnused(Func<GameObjectPool, bool> shouldKeep = null) {
+            ReleaseUnused(shouldKeep);
+            DestroyUnused(shouldKeep);
         }
 
         protected void ClearPools() {
