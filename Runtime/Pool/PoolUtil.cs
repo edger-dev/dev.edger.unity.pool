@@ -14,7 +14,7 @@ namespace Edger.Unity.Pool {
         private static PoolUtil _Instance;
         public static PoolUtil Instance {
             get {
-                if (_Instance == null) {
+                if (_Instance == null && !IsApplicationQuiting) {
                     GameObject go = GameObjectUtil.GetOrSpawnRoot("_PoolUtil_");
                     _Instance = go.GetOrAddComponent<PoolUtil>();
                 }
@@ -29,6 +29,8 @@ namespace Edger.Unity.Pool {
                 _Instance = null;
             }
         }
+
+        public static bool IsApplicationQuiting { get; private set; } = false;
 
 #if ODIN_INSPECTOR
         [ShowInInspector]
@@ -52,7 +54,13 @@ namespace Edger.Unity.Pool {
             }
         }
 
+        public void OnApplicationQuit() {
+            IsApplicationQuiting = true;
+        }
+
         public GameObjectPool GetPool(string key) {
+            if (IsApplicationQuiting) return null;
+
             GameObjectPool pool = null;
             if (_Pools.TryGetValue(key, out pool)) {
                 return pool;
@@ -61,7 +69,9 @@ namespace Edger.Unity.Pool {
         }
 
         public bool Release(string poolKey, GameObject go) {
-            var pool = PoolUtil.Instance.GetPool(poolKey);
+            if (IsApplicationQuiting) return false;
+
+            var pool = GetPool(poolKey);
             if (pool == null) {
                 ErrorFrom(go, "Release() Pool Not Found: [{0}] {1}", poolKey, go.name);
                 return false;
@@ -76,6 +86,8 @@ namespace Edger.Unity.Pool {
                     bool updateParent = GameObjectPool.Default_UpdateParent,
                     bool setActive = GameObjectPool.Default_SetActive,
                     Action<string, GameObjectPool> onPoolAdded = null) {
+            if (IsApplicationQuiting) return null;
+
             GameObjectPool pool = GetPool(key);
             if (pool == null) {
                 GameObject child = new GameObject();
@@ -98,6 +110,8 @@ namespace Edger.Unity.Pool {
         }
 
         public void Release(GameObject go, UnityEngine.Object caller = null) {
+            if (IsApplicationQuiting) return;
+
             var data = go.GetComponent<InPoolData>();
             if (data == null) {
                 ErrorFrom(caller == null ? go : caller,
@@ -117,6 +131,8 @@ namespace Edger.Unity.Pool {
         [Button(ButtonSizes.Large)]
 #endif
         public void ReleaseUnused(Func<GameObjectPool, bool> shouldKeep = null) {
+            if (IsApplicationQuiting) return;
+
             foreach (var kv in _Pools) {
                 bool keep = shouldKeep == null ? false : shouldKeep(kv.Value);
                 if (!keep) {
@@ -129,6 +145,8 @@ namespace Edger.Unity.Pool {
         [Button(ButtonSizes.Large)]
 #endif
         public void DestroyUnused(Func<GameObjectPool, bool> shouldKeep = null) {
+            if (IsApplicationQuiting) return;
+
             List<GameObjectPool> unusedPools = null;
             foreach (var kv in _Pools) {
                 if (kv.Value.Data.TakenCount == 0 && kv.Value.UnusedCount == 0) {
@@ -155,11 +173,15 @@ namespace Edger.Unity.Pool {
         [Button(ButtonSizes.Large)]
 #endif
         public void ReleaseAndDestroyUnused(Func<GameObjectPool, bool> shouldKeep = null) {
+            if (IsApplicationQuiting) return;
+
             ReleaseUnused(shouldKeep);
             DestroyUnused(shouldKeep);
         }
 
         protected void ClearPools() {
+            if (IsApplicationQuiting) return;
+
             foreach (var kv in _Pools) {
                 var pool = kv.Value;
                 InfoFrom(pool, "Pool Destroyed: {0}: TakenCount = {0}, UnusedCount = {1}", pool.LogPrefix, pool.Data.TakenCount, pool.UnusedCount);
