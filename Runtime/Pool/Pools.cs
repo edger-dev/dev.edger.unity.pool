@@ -4,52 +4,35 @@ using System.Collections.Generic;
 using UnityEngine;
 
 using Edger.Unity;
+using Edger.Unity.Context;
 
 #if ODIN_INSPECTOR
 using Sirenix.OdinInspector;
 #endif
 
 namespace Edger.Unity.Pool {
-    public class PoolUtil : BaseMono {
-        private static PoolUtil _Instance;
-        public static PoolUtil Instance {
-            get {
-                if (_Instance == null && !IsApplicationQuiting) {
-                    GameObject go = GameObjectUtil.GetOrSpawnRoot("_PoolUtil_");
-                    _Instance = go.GetOrAddComponent<PoolUtil>();
-                }
-                return _Instance;
-            }
-        }
-        public static void DestroyInstance() {
-            if (_Instance != null) {
-                _Instance.ClearPools();
-                _Instance.name = "_PoolUtils_(Destroy)";
-                GameObjectUtil.Destroy(_Instance.gameObject);
-                _Instance = null;
-            }
-        }
+    public class GameObjectPools : DictAspect<string, GameObjectPool> {
+    }
+
+    public class Pools : Env, ISingleton {
+        private static Pools _Instance;
+        public static Pools Instance { get => Singleton.GetInstance(ref _Instance); }
 
         public static bool IsApplicationQuiting { get; private set; } = false;
 
-#if ODIN_INSPECTOR
-        [ShowInInspector]
-        [ReadOnly]
-#endif
-        public int PoolCount {
-            get {
-                return _Pools.Count;
+        public AspectReference<GameObjectPools> GameObjectPools { get; private set; }
+
+        protected override void OnAwake() {
+            if (Singleton.SetupInstance(ref _Instance, this)) {
+                GameObjectPools = CacheAspect<GameObjectPools>();
             }
         }
 
-        private Dictionary<string, GameObjectPool> _Pools = new Dictionary<string, GameObjectPool>();
-
         public void Start() {
-            //this.DebugMode = true;
             foreach (Transform child in transform) {
                 var pool = child.GetComponent<GameObjectPool>();
                 if (pool != null) {
-                    _Pools[pool.name] = pool;
+                    GameObjectPools.Target[pool.name] = pool;
                 }
             }
         }
@@ -62,7 +45,7 @@ namespace Edger.Unity.Pool {
             if (IsApplicationQuiting) return null;
 
             GameObjectPool pool = null;
-            if (_Pools.TryGetValue(key, out pool)) {
+            if (GameObjectPools.Target.TryGetValue(key, out pool)) {
                 return pool;
             }
             return null;
@@ -82,9 +65,7 @@ namespace Edger.Unity.Pool {
 
         public GameObjectPool GetOrAddPool(string key,
                     Func<GameObject> createPrefab,
-                    int maxSize = GameObjectPool.Default_MaxSize,
-                    bool updateParent = GameObjectPool.Default_UpdateParent,
-                    bool setActive = GameObjectPool.Default_SetActive,
+                    PoolConfig config = null,
                     Action<string, GameObjectPool> onPoolAdded = null) {
             if (IsApplicationQuiting) return null;
 
@@ -95,16 +76,13 @@ namespace Edger.Unity.Pool {
                 child.transform.SetParent(transform, false);
                 child.transform.localPosition = Vector3.zero;
                 pool = child.AddComponent<GameObjectPool>();
-                pool.Prefab = createPrefab();
-                pool.MaxSize = maxSize;
-                pool.UpdateParent = updateParent;
-                pool.SetActive = setActive;
+                pool.Setup(createPrefab(), config);
                 pool.DebugMode = this.DebugMode;
                 if (onPoolAdded != null) {
                     onPoolAdded(key, pool);
                 }
-                _Pools[key] = pool;
-                InfoFrom(pool, "Pool Created: {0}maxSize = {1}, updateParent = {2}", pool.LogPrefix, maxSize, updateParent);
+                GameObjectPools.Target[key] = pool;
+                InfoFrom(pool, "Pool Created: {0}Config = {1}", pool.LogPrefix, pool.Config.ToString());
             }
             return pool;
         }
@@ -133,7 +111,7 @@ namespace Edger.Unity.Pool {
         public void ReleaseUnused(Func<GameObjectPool, bool> shouldKeep = null) {
             if (IsApplicationQuiting) return;
 
-            foreach (var kv in _Pools) {
+            foreach (var kv in GameObjectPools.Target) {
                 bool keep = shouldKeep == null ? false : shouldKeep(kv.Value);
                 if (!keep) {
                     kv.Value.ReleaseUnused();
@@ -148,7 +126,7 @@ namespace Edger.Unity.Pool {
             if (IsApplicationQuiting) return;
 
             List<GameObjectPool> unusedPools = null;
-            foreach (var kv in _Pools) {
+            foreach (var kv in GameObjectPools.Target) {
                 if (kv.Value.Data.TakenCount == 0 && kv.Value.UnusedCount == 0) {
                     bool keep = shouldKeep == null ? false : shouldKeep(kv.Value);
                     if (!keep) {
@@ -162,7 +140,7 @@ namespace Edger.Unity.Pool {
             if (unusedPools != null) {
                 for (int i = 0; i < unusedPools.Count; i++) {
                     var pool = unusedPools[i];
-                    _Pools.Remove(pool.PoolKey);
+                    GameObjectPools.Target.Remove(pool.PoolKey);
                     InfoFrom(pool, "Unused Pool Destroyed: {0}", pool.LogPrefix);
                     GameObjectUtil.Destroy(pool.gameObject);
                 }
@@ -182,12 +160,12 @@ namespace Edger.Unity.Pool {
         protected void ClearPools() {
             if (IsApplicationQuiting) return;
 
-            foreach (var kv in _Pools) {
+            foreach (var kv in GameObjectPools.Target) {
                 var pool = kv.Value;
                 InfoFrom(pool, "Pool Destroyed: {0}: TakenCount = {0}, UnusedCount = {1}", pool.LogPrefix, pool.Data.TakenCount, pool.UnusedCount);
                 GameObjectUtil.Destroy(pool.gameObject);
             }
-            _Pools.Clear();
+            GameObjectPools.Target.Clear();
             OnClear();
         }
 
